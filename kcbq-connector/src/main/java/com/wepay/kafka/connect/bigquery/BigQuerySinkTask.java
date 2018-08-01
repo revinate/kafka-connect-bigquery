@@ -67,7 +67,7 @@ public class BigQuerySinkTask extends SinkTask {
     private RecordConverter<Map<String, Object>> recordConverter;
     private Map<String, TableId> topicsToBaseTableIds;
     private boolean useMessageTimeDatePartitioning;
-    private boolean usePartitionByCustomKey;
+    private boolean useKeyPartitioning;
 
     private TopicPartitionManager topicPartitionManager;
 
@@ -118,7 +118,7 @@ public class BigQuerySinkTask extends SinkTask {
             }
 
             builder.setDayPartition(record.timestamp());
-        } else if (usePartitionByCustomKey) {
+        } else if (useKeyPartitioning) {
             builder.setPartition(String.valueOf(record.key()));
         } else {
             builder.setDayPartitionForNow();
@@ -238,7 +238,7 @@ public class BigQuerySinkTask extends SinkTask {
         topicPartitionManager = new TopicPartitionManager();
         useMessageTimeDatePartitioning =
                 config.getBoolean(config.BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG);
-        usePartitionByCustomKey =
+        useKeyPartitioning =
                 config.getBoolean(config.BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_CONFIG);
     }
 
