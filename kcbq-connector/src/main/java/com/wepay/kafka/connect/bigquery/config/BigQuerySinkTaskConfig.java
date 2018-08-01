@@ -87,20 +87,20 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
             "bigQueryMessageTimePartitioning";
     private static final ConfigDef.Type BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG_TYPE =
             ConfigDef.Type.BOOLEAN;
-    public static final String BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_CONFIG =
+    public static final String BIGQUERY_KEY_PARTITIONING_CONFIG =
             "bigQueryMessageByRecordKey";
-    private static final ConfigDef.Type BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_CONFIG_TYPE =
+    private static final ConfigDef.Type BIGQUERY_KEY_PARTITIONING_CONFIG_TYPE =
             ConfigDef.Type.BOOLEAN;
-    private static final Boolean BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_TYPE_DEFAULT = false;
+    private static final Boolean BIGQUERY_KEY_PARTITIONING_CONFIG_DEFAULT = false;
     public static final Boolean BIGQUERY_MESSAGE_TIME_PARTITIONING_DEFAULT = false;
-    private static final ConfigDef.Importance BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_TYPE_IMPORTANCE =
+    private static final ConfigDef.Importance BIGQUERY_KEY_PARTITIONING_CONFIG_IMPORTANCE =
             ConfigDef.Importance.HIGH;
     private static final ConfigDef.Importance BIGQUERY_MESSAGE_TIME_PARTITIONING_IMPORTANCE =
             ConfigDef.Importance.HIGH;
     private static final String BIGQUERY_MESSAGE_TIME_PARTITIONING_DOC =
             "Whether or not to use the message time when inserting records. "
                     + "Default uses the connector processing time.";
-    private static final String BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_DOC =
+    private static final String BIGQUERY_KEY_PARTITIONING_CONFIG_DOC =
             "Whether or not to use the custom key when inserting records. "
                     + "Default uses the connector processing time.";
 
@@ -147,11 +147,11 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
                         BIGQUERY_MESSAGE_TIME_PARTITIONING_IMPORTANCE,
                         BIGQUERY_MESSAGE_TIME_PARTITIONING_DOC
                 ).define(
-                        BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_CONFIG,
-                        BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_CONFIG_TYPE,
-                        BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_TYPE_DEFAULT,
-                        BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_TYPE_IMPORTANCE,
-                        BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_DOC
+                        BIGQUERY_KEY_PARTITIONING_CONFIG,
+                        BIGQUERY_KEY_PARTITIONING_CONFIG_TYPE,
+                        BIGQUERY_KEY_PARTITIONING_CONFIG_DEFAULT,
+                        BIGQUERY_KEY_PARTITIONING_CONFIG_IMPORTANCE,
+                        BIGQUERY_KEY_PARTITIONING_CONFIG_DOC
                 );
     }
 

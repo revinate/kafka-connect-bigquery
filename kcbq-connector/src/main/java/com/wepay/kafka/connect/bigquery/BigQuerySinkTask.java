@@ -239,7 +239,7 @@ public class BigQuerySinkTask extends SinkTask {
         useMessageTimeDatePartitioning =
                 config.getBoolean(config.BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG);
         useKeyPartitioning =
-                config.getBoolean(config.BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_CONFIG);
+                config.getBoolean(config.BIGQUERY_KEY_PARTITIONING_CONFIG);
     }
 
     @Override

@@ -160,7 +160,7 @@ public class BigQuerySinkTaskTest {
         Map<String, String> properties = propertiesFactory.getProperties();
         properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
         properties.put(BigQuerySinkConfig.DATASETS_CONFIG, ".*=scratch");
-        properties.put(BigQuerySinkTaskConfig.BIGQUERY_MESSAGE_PARTITIONING_BY_KEY_CONFIG, "true");
+        properties.put(BigQuerySinkTaskConfig.BIGQUERY_KEY_PARTITIONING_CONFIG, "true");
 
         BigQuery bigQuery = mock(BigQuery.class);
         SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
