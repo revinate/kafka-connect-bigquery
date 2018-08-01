@@ -88,19 +88,19 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
     private static final ConfigDef.Type BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG_TYPE =
             ConfigDef.Type.BOOLEAN;
     public static final String BIGQUERY_KEY_PARTITIONING_CONFIG =
-            "bigQueryMessageByRecordKey";
+            "bigQueryKeyPartitioning";
     private static final ConfigDef.Type BIGQUERY_KEY_PARTITIONING_CONFIG_TYPE =
             ConfigDef.Type.BOOLEAN;
-    private static final Boolean BIGQUERY_KEY_PARTITIONING_CONFIG_DEFAULT = false;
+    private static final Boolean BIGQUERY_KEY_PARTITIONING_DEFAULT = false;
     public static final Boolean BIGQUERY_MESSAGE_TIME_PARTITIONING_DEFAULT = false;
-    private static final ConfigDef.Importance BIGQUERY_KEY_PARTITIONING_CONFIG_IMPORTANCE =
+    private static final ConfigDef.Importance BIGQUERY_KEY_PARTITIONING_IMPORTANCE =
             ConfigDef.Importance.HIGH;
     private static final ConfigDef.Importance BIGQUERY_MESSAGE_TIME_PARTITIONING_IMPORTANCE =
             ConfigDef.Importance.HIGH;
     private static final String BIGQUERY_MESSAGE_TIME_PARTITIONING_DOC =
             "Whether or not to use the message time when inserting records. "
                     + "Default uses the connector processing time.";
-    private static final String BIGQUERY_KEY_PARTITIONING_CONFIG_DOC =
+    private static final String BIGQUERY_KEY_PARTITIONING_DOC =
             "Whether or not to use the custom key when inserting records. "
                     + "Default uses the connector processing time.";
 
@@ -149,9 +149,9 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
                 ).define(
                         BIGQUERY_KEY_PARTITIONING_CONFIG,
                         BIGQUERY_KEY_PARTITIONING_CONFIG_TYPE,
-                        BIGQUERY_KEY_PARTITIONING_CONFIG_DEFAULT,
-                        BIGQUERY_KEY_PARTITIONING_CONFIG_IMPORTANCE,
-                        BIGQUERY_KEY_PARTITIONING_CONFIG_DOC
+                        BIGQUERY_KEY_PARTITIONING_DEFAULT,
+                        BIGQUERY_KEY_PARTITIONING_IMPORTANCE,
+                        BIGQUERY_KEY_PARTITIONING_DOC
                 );
     }
 
