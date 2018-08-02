@@ -35,14 +35,6 @@ import com.wepay.kafka.connect.bigquery.write.batch.TableWriter;
 import com.wepay.kafka.connect.bigquery.write.row.AdaptiveBigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.BigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.SimpleBigQueryWriter;
-
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
@@ -52,6 +44,13 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A {@link SinkTask} used to translate Kafka Connect {@link SinkRecord SinkRecords} into BigQuery
@@ -119,7 +118,8 @@ public class BigQuerySinkTask extends SinkTask {
 
             builder.setDayPartition(record.timestamp());
         } else if (useKeyPartitioning) {
-            builder.setPartition(String.valueOf(record.key()));
+            builder.setPartition(null);
+            builder.setTemplateSuffix(String.format("_%s", String.valueOf(getRecordId(record))));
         } else {
             builder.setDayPartitionForNow();
         }
@@ -132,6 +132,17 @@ public class BigQuerySinkTask extends SinkTask {
                 record.topic(),
                 record.kafkaPartition(),
                 record.kafkaOffset());
+    }
+
+    private Object getRecordId(SinkRecord record) {
+        Map<String, Object> keyMap = recordConverter.convertRecordKey(record);
+        if (keyMap.containsKey("id")) {
+            return keyMap.get("id");
+        } else {
+            throw new IllegalStateException("Key Should be of format Struct{id:<value>} to be used" +
+                    "as partition key");
+        }
+
     }
 
     private RowToInsert getRecordRow(SinkRecord record) {
