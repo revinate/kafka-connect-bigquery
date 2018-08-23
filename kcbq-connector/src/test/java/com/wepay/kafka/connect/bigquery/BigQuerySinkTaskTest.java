@@ -32,8 +32,12 @@ import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.SinkConfigConnectException;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
@@ -173,7 +177,9 @@ public class BigQuerySinkTaskTest {
         testTask.initialize(sinkTaskContext);
         testTask.start(properties);
 
-        testTask.put(Collections.singletonList(spoofSinkRecord(topic, "value",
+        testTask.put(Collections.singletonList(spoofSinkRecord(topic,
+                "value",
+                "id",
                 key,
                 "message text",
                 TimestampType.CREATE_TIME, 1509007584334L)));
@@ -181,7 +187,53 @@ public class BigQuerySinkTaskTest {
         ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
 
         verify(bigQuery, times(1)).insertAll(argument.capture());
-        assertEquals("test-topic$test-key", argument.getValue().getTable().getTable());
+        assertEquals("test-topic", argument.getValue().getTable().getTable());
+        assertEquals("_test-key", argument.getValue().getTemplateSuffix());
+    }
+
+    @Test
+    public void testPutMultipleRecordsWhenPartitioningByCustomKey() {
+        final String topic = "test-topic";
+
+
+        Map<String, String> properties = propertiesFactory.getProperties();
+        properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
+        properties.put(BigQuerySinkConfig.DATASETS_CONFIG, ".*=scratch");
+        properties.put(BigQuerySinkTaskConfig.BIGQUERY_KEY_PARTITIONING_CONFIG, "true");
+
+        BigQuery bigQuery = mock(BigQuery.class);
+        SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
+        InsertAllResponse insertAllResponse = mock(InsertAllResponse.class);
+
+        when(bigQuery.insertAll(anyObject())).thenReturn(insertAllResponse);
+        when(insertAllResponse.hasErrors()).thenReturn(false);
+
+        BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, null);
+        testTask.initialize(sinkTaskContext);
+        testTask.start(properties);
+
+        final String key1 = "test-key1";
+        Stream<SinkRecord> firstSetOfRecords = IntStream.range(0,3).mapToObj(i -> spoofSinkRecord(topic, "value",
+                "id",
+                key1,
+                String.format("message-text-%d", i),
+                TimestampType.CREATE_TIME, 1509007584334L));
+
+        final String key2 = "test-key2";
+        Stream<SinkRecord> secondSetOfRecords = IntStream.range(0,3).mapToObj(i -> spoofSinkRecord(topic, "value",
+                "id",
+                key2,
+                String.format("message-text-%d", i),
+                TimestampType.CREATE_TIME, 1509007584334L));
+
+        List<SinkRecord> records = Stream.concat(firstSetOfRecords, secondSetOfRecords).collect(Collectors.toList());
+
+        testTask.put(records);
+        testTask.flush(Collections.emptyMap());
+        ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
+
+        verify(bigQuery, times(2)).insertAll(argument.capture());
+//        assertEquals("test-topic$test-key", argument.getValue().getTable().getTable());
     }
 
     @Test
@@ -477,6 +529,37 @@ public class BigQuerySinkTaskTest {
     public static SinkRecord spoofSinkRecord(String topic, String field, String value,
                                              TimestampType timestampType, Long timestamp) {
         return spoofSinkRecord(topic, field, null, value, timestampType, timestamp);
+    }
+
+
+    /**
+     * Utility method for spoofing SinkRecords that should be passed to SinkTask.put()
+     *
+     * @param topic         The topic of the record.
+     * @param key           The key of the record.
+     * @param value         The content of the record.
+     * @param timestampType The type of timestamp embedded in the message
+     * @param timestamp     The timestamp in milliseconds
+     * @return The spoofed SinkRecord.
+     */
+    public static SinkRecord spoofSinkRecord(String topic, String field, String keyField, String key, String value,
+                                             TimestampType timestampType, Long timestamp) {
+        Schema basicRowSchema = SchemaBuilder
+                .struct()
+                .field(field, Schema.STRING_SCHEMA)
+                .build();
+        Schema basicKeySchema = SchemaBuilder
+                .struct()
+                .field(keyField, Schema.STRING_SCHEMA)
+                .build();
+        Struct basicRowValue = new Struct(basicRowSchema);
+        basicRowValue.put(field, value);
+
+        Struct basicKeyValue = new Struct(basicKeySchema);
+        basicKeyValue.put(keyField, key);
+
+        return new SinkRecord(topic, 0, basicKeySchema, basicKeyValue ,
+                basicRowSchema, basicRowValue, 0, timestamp, timestampType);
     }
 
     /**

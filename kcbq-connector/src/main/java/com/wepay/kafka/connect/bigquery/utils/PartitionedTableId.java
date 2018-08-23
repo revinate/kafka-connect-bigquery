@@ -23,6 +23,7 @@ import com.google.cloud.bigquery.TableId;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 /**
  * A TableId with separate base table name and partition information.
@@ -145,17 +146,18 @@ public class PartitionedTableId {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof PartitionedTableId) {
-            PartitionedTableId that = (PartitionedTableId) obj;
-            return fullTableId.equals(that.fullTableId);
-        }
-        return false;
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PartitionedTableId that = (PartitionedTableId) o;
+        return Objects.equals(templateSuffix, that.templateSuffix) &&
+                Objects.equals(fullTableId, that.fullTableId);
     }
 
     @Override
     public int hashCode() {
-        return fullTableId.hashCode();
+
+        return Objects.hash(templateSuffix, fullTableId);
     }
 
     @Override
