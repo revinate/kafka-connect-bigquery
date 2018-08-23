@@ -63,4 +63,5 @@ public class KafkaDataBQRecordConverter extends BigQueryRecordConverter {
                   System.currentTimeMillis() / 1000.0);
     return record;
   }
+
 }

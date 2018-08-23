@@ -80,6 +80,23 @@ public class BigQueryRecordConverter implements RecordConverter<Map<String, Obje
     return convertStruct(kafkaConnectRecord.value(), kafkaConnectSchema);
   }
 
+  /**
+   * Convert a {@link SinkRecord} key into the String Representation
+   *
+   * @param kafkaConnectRecord The Kafka Connect record to convert. Key Must be of type {@link Struct},
+   *                           in order to translate into a row format that requires each field to
+   *                           consist of both a name and a value.
+   * @return The Key values as Map.
+   */
+  public Map<String, Object> convertRecordKey(SinkRecord kafkaConnectRecord) {
+    Schema kafkaConnectSchema = kafkaConnectRecord.keySchema();
+    if (kafkaConnectSchema == null || kafkaConnectSchema.type() != Schema.Type.STRUCT) {
+      throw new
+              ConversionConnectException("Top-level Kafka key schema must be of present and if of type 'struct'");
+    }
+    return convertStruct(kafkaConnectRecord.key(), kafkaConnectSchema);
+  }
+
   @SuppressWarnings("unchecked")
   private Object convertObject(Object kafkaConnectObject, Schema kafkaConnectSchema) {
     if (kafkaConnectObject == null) {

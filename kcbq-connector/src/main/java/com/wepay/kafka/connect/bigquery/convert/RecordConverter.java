@@ -22,12 +22,15 @@ import org.apache.kafka.connect.sink.SinkRecord;
 
 /**
  * Interface for converting from a {@link SinkRecord} to some other kind of record.
+ *
  * @param <R> The type of record to convert to.
  */
 public interface RecordConverter<R> {
-  /**
-   * @param record The record to convert.
-   * @return The converted record.
-   */
-  R convertRecord(SinkRecord record);
+    /**
+     * @param record The record to convert.
+     * @return The converted record.
+     */
+    R convertRecord(SinkRecord record);
+
+    R convertRecordKey(SinkRecord record);
 }

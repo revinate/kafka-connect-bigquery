@@ -26,103 +26,106 @@ import java.time.LocalDate;
 
 public class PartitionedTableIdTest {
 
-  @Test
-  public void testBasicBuilder() {
-    final String dataset = "dataset";
-    final String table = "table";
+    @Test
+    public void testBasicBuilder() {
+        final String dataset = "dataset";
+        final String table = "table";
 
-    final PartitionedTableId tableId = new PartitionedTableId.Builder(dataset, table).build();
+        final PartitionedTableId tableId = new PartitionedTableId.Builder(dataset, table).build();
 
-    Assert.assertEquals(dataset, tableId.getDataset());
-    Assert.assertEquals(table, tableId.getBaseTableName());
-    Assert.assertEquals(table, tableId.getFullTableName());
+        Assert.assertEquals(dataset, tableId.getDataset());
+        Assert.assertEquals(table, tableId.getBaseTableName());
+        Assert.assertEquals(table, tableId.getFullTableName());
 
-    TableId expectedTableId = TableId.of(dataset, table);
-    Assert.assertEquals(expectedTableId, tableId.getBaseTableId());
-    Assert.assertEquals(expectedTableId, tableId.getFullTableId());
-  }
+        TableId expectedTableId = TableId.of(dataset, table);
+        Assert.assertEquals(expectedTableId, tableId.getBaseTableId());
+        Assert.assertEquals(expectedTableId, tableId.getFullTableId());
+    }
 
-  @Test
-  public void testTableIdBuilder() {
-    final String project = "project";
-    final String dataset = "dataset";
-    final String table = "table";
-    final TableId tableId = TableId.of(project, dataset, table);
+    @Test
+    public void testTableIdBuilder() {
+        final String project = "project";
+        final String dataset = "dataset";
+        final String table = "table";
+        final TableId tableId = TableId.of(project, dataset, table);
 
-    final PartitionedTableId partitionedTableId = new PartitionedTableId.Builder(tableId).build();
+        final PartitionedTableId partitionedTableId = new PartitionedTableId.Builder(tableId).build();
 
-    Assert.assertEquals(project, partitionedTableId.getProject());
-    Assert.assertEquals(dataset, partitionedTableId.getDataset());
-    Assert.assertEquals(table, partitionedTableId.getBaseTableName());
-    Assert.assertEquals(table, partitionedTableId.getFullTableName());
+        Assert.assertEquals(project, partitionedTableId.getProject());
+        Assert.assertEquals(dataset, partitionedTableId.getDataset());
+        Assert.assertEquals(table, partitionedTableId.getBaseTableName());
+        Assert.assertEquals(table, partitionedTableId.getFullTableName());
 
-    Assert.assertEquals(tableId, partitionedTableId.getBaseTableId());
-    Assert.assertEquals(tableId, partitionedTableId.getFullTableId());
-  }
+        Assert.assertEquals(tableId, partitionedTableId.getBaseTableId());
+        Assert.assertEquals(tableId, partitionedTableId.getFullTableId());
+    }
 
-  @Test
-  public void testWithPartition() {
-    final String dataset = "dataset";
-    final String table = "table";
-    final String partitionColumn = "custom_partition_key";
+    @Test
+    public void testWithTemplateSuffix() {
+        final String dataset = "dataset";
+        final String table = "table";
+        final String templateSuffix = "somesuffix";
 
-    final PartitionedTableId partitionedTableId =
-            new PartitionedTableId.Builder(dataset, table).setPartition(partitionColumn).build();
+        final PartitionedTableId partitionedTableId =
+                new PartitionedTableId.Builder(dataset, table).setPartition(null)
+                        .setTemplateSuffix(templateSuffix)
+                        .build();
 
 
-    Assert.assertEquals(dataset, partitionedTableId.getDataset());
-    Assert.assertEquals(table, partitionedTableId.getBaseTableName());
-    Assert.assertEquals(table + "$" + partitionColumn, partitionedTableId.getFullTableName());
+        Assert.assertEquals(dataset, partitionedTableId.getDataset());
+        Assert.assertEquals(table, partitionedTableId.getBaseTableName());
+        Assert.assertEquals(table, partitionedTableId.getFullTableName());
 
-    final TableId expectedBaseTableId = TableId.of(dataset, table);
-    final TableId expectedFullTableId = TableId.of(dataset, table + "$" + partitionColumn);
+        final TableId expectedBaseTableId = TableId.of(dataset, table);
+        final TableId expectedFullTableId = TableId.of(dataset, table);
 
-    Assert.assertEquals(expectedBaseTableId, partitionedTableId.getBaseTableId());
-    Assert.assertEquals(expectedFullTableId, partitionedTableId.getFullTableId());
-  }
+        Assert.assertEquals(expectedBaseTableId, partitionedTableId.getBaseTableId());
+        Assert.assertEquals(expectedFullTableId, partitionedTableId.getFullTableId());
+        Assert.assertEquals(templateSuffix, partitionedTableId.getTemplateSuffix());
+    }
 
-  @Test
-  public void testWithPartitionDate() {
-    final String dataset = "dataset";
-    final String table = "table";
-    final LocalDate partitionDate = LocalDate.of(2016, 9, 21);
+    @Test
+    public void testWithPartitionDate() {
+        final String dataset = "dataset";
+        final String table = "table";
+        final LocalDate partitionDate = LocalDate.of(2016, 9, 21);
 
-    final PartitionedTableId partitionedTableId =
-        new PartitionedTableId.Builder(dataset, table).setDayPartition(partitionDate).build();
+        final PartitionedTableId partitionedTableId =
+                new PartitionedTableId.Builder(dataset, table).setDayPartition(partitionDate).build();
 
-    final String expectedPartition = "20160921";
+        final String expectedPartition = "20160921";
 
-    Assert.assertEquals(dataset, partitionedTableId.getDataset());
-    Assert.assertEquals(table, partitionedTableId.getBaseTableName());
-    Assert.assertEquals(table + "$" + expectedPartition, partitionedTableId.getFullTableName());
+        Assert.assertEquals(dataset, partitionedTableId.getDataset());
+        Assert.assertEquals(table, partitionedTableId.getBaseTableName());
+        Assert.assertEquals(table + "$" + expectedPartition, partitionedTableId.getFullTableName());
 
-    final TableId expectedBaseTableId = TableId.of(dataset, table);
-    final TableId expectedFullTableId = TableId.of(dataset, table + "$" + expectedPartition);
+        final TableId expectedBaseTableId = TableId.of(dataset, table);
+        final TableId expectedFullTableId = TableId.of(dataset, table + "$" + expectedPartition);
 
-    Assert.assertEquals(expectedBaseTableId, partitionedTableId.getBaseTableId());
-    Assert.assertEquals(expectedFullTableId, partitionedTableId.getFullTableId());
-  }
+        Assert.assertEquals(expectedBaseTableId, partitionedTableId.getBaseTableId());
+        Assert.assertEquals(expectedFullTableId, partitionedTableId.getFullTableId());
+    }
 
-  @Test
-  public void testWithEpochTimePartition() {
-    final String dataset = "dataset";
-    final String table = "table";
+    @Test
+    public void testWithEpochTimePartition() {
+        final String dataset = "dataset";
+        final String table = "table";
 
-    final long utcTime = 1509007584334L;
+        final long utcTime = 1509007584334L;
 
-    final PartitionedTableId partitionedTableId =
-            new PartitionedTableId.Builder(dataset, table).setDayPartition(utcTime).build();
+        final PartitionedTableId partitionedTableId =
+                new PartitionedTableId.Builder(dataset, table).setDayPartition(utcTime).build();
 
-    final String expectedPartition = "20171026";
+        final String expectedPartition = "20171026";
 
-    Assert.assertEquals(dataset, partitionedTableId.getDataset());
-    Assert.assertEquals(table, partitionedTableId.getBaseTableName());
-    Assert.assertEquals(table + "$" + expectedPartition, partitionedTableId.getFullTableName());
+        Assert.assertEquals(dataset, partitionedTableId.getDataset());
+        Assert.assertEquals(table, partitionedTableId.getBaseTableName());
+        Assert.assertEquals(table + "$" + expectedPartition, partitionedTableId.getFullTableName());
 
-    final TableId expectedBaseTableId = TableId.of(dataset, table);
-    final TableId expectedFullTableId = TableId.of(dataset, table + "$" + expectedPartition);
+        final TableId expectedBaseTableId = TableId.of(dataset, table);
+        final TableId expectedFullTableId = TableId.of(dataset, table + "$" + expectedPartition);
 
-    Assert.assertEquals(expectedBaseTableId, partitionedTableId.getBaseTableId());
-    Assert.assertEquals(expectedFullTableId, partitionedTableId.getFullTableId());
-  }
+        Assert.assertEquals(expectedBaseTableId, partitionedTableId.getBaseTableId());
+        Assert.assertEquals(expectedFullTableId, partitionedTableId.getFullTableId());
+    }
 }
