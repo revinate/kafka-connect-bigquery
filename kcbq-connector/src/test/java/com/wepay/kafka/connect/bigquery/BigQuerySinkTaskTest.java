@@ -18,27 +18,14 @@ package com.wepay.kafka.connect.bigquery;
  */
 
 
-import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.BigQueryError;
-import com.google.cloud.bigquery.BigQueryException;
-import com.google.cloud.bigquery.InsertAllRequest;
-import com.google.cloud.bigquery.InsertAllResponse;
-import com.google.cloud.bigquery.TableId;
-
+import com.google.cloud.bigquery.*;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.exception.SinkConfigConnectException;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
-
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -48,19 +35,22 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class BigQuerySinkTaskTest {
     private static SinkTaskPropertiesFactory propertiesFactory;
@@ -92,6 +82,131 @@ public class BigQuerySinkTaskTest {
         testTask.put(Collections.singletonList(spoofSinkRecord(topic)));
         testTask.flush(Collections.emptyMap());
         verify(bigQuery, times(1)).insertAll(any(InsertAllRequest.class));
+    }
+
+    @Test
+    public void testSimplePutWithFilters() {
+        final String topic = "test-topic";
+
+        Map<String, String> properties = propertiesFactory.getProperties();
+        properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
+        properties.put(BigQuerySinkTaskConfig.BIGQUERY_FILTER_KEY_CONFIG, "filterColumn");
+        properties.put(BigQuerySinkTaskConfig.BIGQUERY_FILTER_VALUES_CONFIG, "100,103");
+        properties.put(BigQuerySinkConfig.DATASETS_CONFIG, ".*=scratch");
+
+        BigQuery bigQuery = mock(BigQuery.class);
+        SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
+        InsertAllResponse insertAllResponse = mock(InsertAllResponse.class);
+
+        when(bigQuery.insertAll(anyObject())).thenReturn(insertAllResponse);
+        when(insertAllResponse.hasErrors()).thenReturn(false);
+
+        BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, null);
+        testTask.initialize(sinkTaskContext);
+        testTask.start(properties);
+
+        Stream<SinkRecord> records = IntStream.range(0, 4).mapToObj(i -> spoofSinkRecord(topic,
+                "filterColumn",
+                "key",
+                "key",
+                String.valueOf(i + 100),
+                TimestampType.CREATE_TIME, 1509007584334L));
+        List<SinkRecord> recordCollection = records.collect(Collectors.toList());
+        testTask.put(recordCollection);
+        testTask.flush(Collections.emptyMap());
+
+        ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
+
+        verify(bigQuery, times(1)).insertAll(argument.capture());
+        List<InsertAllRequest.RowToInsert> rows = argument.getValue().getRows();
+        assertEquals(2, rows.size());
+        Set<String> insertedRows = rows.stream().map(r -> r.getContent().get("filterColumn"))
+                .map(Object::toString).collect(Collectors.toSet());
+        Set<String> expected = Sets.newHashSet(Lists.newArrayList("100", "103"));
+        assertEquals(expected, insertedRows);
+    }
+
+
+    @Test
+    public void testPutWithFilterKeyButEmptyValues() {
+        final String topic = "test-topic";
+
+        Map<String, String> properties = propertiesFactory.getProperties();
+        properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
+        properties.put(BigQuerySinkTaskConfig.BIGQUERY_FILTER_KEY_CONFIG, "filterColumn");
+        properties.put(BigQuerySinkConfig.DATASETS_CONFIG, ".*=scratch");
+
+        BigQuery bigQuery = mock(BigQuery.class);
+        SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
+        InsertAllResponse insertAllResponse = mock(InsertAllResponse.class);
+
+        when(bigQuery.insertAll(anyObject())).thenReturn(insertAllResponse);
+        when(insertAllResponse.hasErrors()).thenReturn(false);
+
+        BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, null);
+        testTask.initialize(sinkTaskContext);
+        testTask.start(properties);
+
+        Stream<SinkRecord> records = IntStream.range(0, 4).mapToObj(i -> spoofSinkRecord(topic,
+                "filterColumn",
+                "key",
+                "key",
+                String.valueOf(i + 100),
+                TimestampType.CREATE_TIME, 1509007584334L));
+        List<SinkRecord> recordCollection = records.collect(Collectors.toList());
+        testTask.put(recordCollection);
+        testTask.flush(Collections.emptyMap());
+
+        ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
+
+        verify(bigQuery, times(1)).insertAll(argument.capture());
+        List<InsertAllRequest.RowToInsert> rows = argument.getValue().getRows();
+        assertEquals(4, rows.size());
+        Set<String> insertedRows = rows.stream().map(r -> r.getContent().get("filterColumn"))
+                .map(Object::toString).collect(Collectors.toSet());
+        Set<String> expected = Sets.newHashSet(Lists.newArrayList("100", "103", "101", "102"));
+        assertEquals(expected, insertedRows);
+    }
+
+    @Test
+    public void testPutWithFilterValuesButNoKey() {
+        final String topic = "test-topic";
+
+        Map<String, String> properties = propertiesFactory.getProperties();
+        properties.put(BigQuerySinkConfig.TOPICS_CONFIG, topic);
+        properties.put(BigQuerySinkTaskConfig.BIGQUERY_FILTER_VALUES_CONFIG, "100,103");
+        properties.put(BigQuerySinkConfig.DATASETS_CONFIG, ".*=scratch");
+
+        BigQuery bigQuery = mock(BigQuery.class);
+        SinkTaskContext sinkTaskContext = mock(SinkTaskContext.class);
+        InsertAllResponse insertAllResponse = mock(InsertAllResponse.class);
+
+        when(bigQuery.insertAll(anyObject())).thenReturn(insertAllResponse);
+        when(insertAllResponse.hasErrors()).thenReturn(false);
+
+        BigQuerySinkTask testTask = new BigQuerySinkTask(bigQuery, null);
+        testTask.initialize(sinkTaskContext);
+        testTask.start(properties);
+
+        Stream<SinkRecord> records = IntStream.range(0, 4).mapToObj(i -> spoofSinkRecord(topic,
+                "filterColumn",
+                "key",
+                "key",
+                String.valueOf(i + 100),
+                TimestampType.CREATE_TIME, 1509007584334L));
+        List<SinkRecord> recordCollection = records.collect(Collectors.toList());
+        testTask.put(recordCollection);
+        testTask.flush(Collections.emptyMap());
+
+        ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
+
+        verify(bigQuery, times(1)).insertAll(argument.capture());
+        List<InsertAllRequest.RowToInsert> rows = argument.getValue().getRows();
+        assertEquals(4, rows.size());
+        Set<String> insertedRows = rows.stream().map(r -> r.getContent().get("filterColumn"))
+                .map(Object::toString).collect(Collectors.toSet());
+        Set<String> expected = Sets.newHashSet(Lists.newArrayList("100", "103", "101", "102"));
+        assertEquals(expected, insertedRows);
     }
 
     @Test
@@ -213,14 +328,14 @@ public class BigQuerySinkTaskTest {
         testTask.start(properties);
 
         final String key1 = "test-key1";
-        Stream<SinkRecord> firstSetOfRecords = IntStream.range(0,3).mapToObj(i -> spoofSinkRecord(topic, "value",
+        Stream<SinkRecord> firstSetOfRecords = IntStream.range(0, 3).mapToObj(i -> spoofSinkRecord(topic, "value",
                 "id",
                 key1,
                 String.format("message-text-%d", i),
                 TimestampType.CREATE_TIME, 1509007584334L));
 
         final String key2 = "test-key2";
-        Stream<SinkRecord> secondSetOfRecords = IntStream.range(0,3).mapToObj(i -> spoofSinkRecord(topic, "value",
+        Stream<SinkRecord> secondSetOfRecords = IntStream.range(0, 3).mapToObj(i -> spoofSinkRecord(topic, "value",
                 "id",
                 key2,
                 String.format("message-text-%d", i),
@@ -233,7 +348,6 @@ public class BigQuerySinkTaskTest {
         ArgumentCaptor<InsertAllRequest> argument = ArgumentCaptor.forClass(InsertAllRequest.class);
 
         verify(bigQuery, times(2)).insertAll(argument.capture());
-//        assertEquals("test-topic$test-key", argument.getValue().getTable().getTable());
     }
 
     @Test
@@ -558,7 +672,7 @@ public class BigQuerySinkTaskTest {
         Struct basicKeyValue = new Struct(basicKeySchema);
         basicKeyValue.put(keyField, key);
 
-        return new SinkRecord(topic, 0, basicKeySchema, basicKeyValue ,
+        return new SinkRecord(topic, 0, basicKeySchema, basicKeyValue,
                 basicRowSchema, basicRowValue, 0, timestamp, timestampType);
     }
 

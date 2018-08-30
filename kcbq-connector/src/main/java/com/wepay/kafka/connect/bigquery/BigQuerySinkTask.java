@@ -22,7 +22,10 @@ import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.InsertAllRequest.RowToInsert;
 import com.google.cloud.bigquery.TableId;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicate;
+import com.google.common.base.Strings;
 import com.wepay.kafka.connect.bigquery.api.SchemaRetriever;
+import com.wepay.kafka.connect.bigquery.config.BigQuerySinkConfig;
 import com.wepay.kafka.connect.bigquery.config.BigQuerySinkTaskConfig;
 import com.wepay.kafka.connect.bigquery.convert.RecordConverter;
 import com.wepay.kafka.connect.bigquery.convert.SchemaConverter;
@@ -45,12 +48,10 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * A {@link SinkTask} used to translate Kafka Connect {@link SinkRecord SinkRecords} into BigQuery
@@ -60,6 +61,9 @@ public class BigQuerySinkTask extends SinkTask {
     private static final Logger logger = LoggerFactory.getLogger(BigQuerySinkTask.class);
 
     private final BigQuery testBigQuery;
+    private boolean hasFilter;
+    private String filterKey;
+    private Set<String> rowFilters;
     private SchemaRetriever schemaRetriever;
     private BigQueryWriter bigQueryWriter;
     private BigQuerySinkTaskConfig config;
@@ -72,6 +76,7 @@ public class BigQuerySinkTask extends SinkTask {
 
     private KCBQThreadPoolExecutor executor;
     private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SEC = 30;
+    private Predicate<RowToInsert> filterRowPredicate;
 
     public BigQuerySinkTask() {
         testBigQuery = null;
@@ -155,27 +160,33 @@ public class BigQuerySinkTask extends SinkTask {
     @Override
     public void put(Collection<SinkRecord> records) {
         logger.info("Putting {} records in the sink.", records.size());
-
         // create tableWriters
         Map<PartitionedTableId, TableWriter.Builder> tableWriterBuilders = new HashMap<>();
 
-        for (SinkRecord record : records) {
-            if (record.value() != null) {
-                PartitionedTableId table = getRecordTable(record);
-                if (schemaRetriever != null) {
-                    schemaRetriever.setLastSeenSchema(table.getBaseTableId(),
-                            record.topic(),
-                            record.valueSchema());
-                }
+        records.stream()
+                .map(record -> new AbstractMap.SimpleEntry<>(record, getRecordRow(record)))
+                .filter(r -> filterRowPredicate.apply(r.getValue()))
+                .forEach(r -> {
+                    SinkRecord record = r.getKey();
+                    RowToInsert recordRow = r.getValue();
+                    if (record.value() != null) {
+                        PartitionedTableId table = getRecordTable(record);
+                        if (schemaRetriever != null) {
+                            schemaRetriever.setLastSeenSchema(table.getBaseTableId(),
+                                    record.topic(),
+                                    record.valueSchema());
+                        }
 
-                if (!tableWriterBuilders.containsKey(table)) {
-                    TableWriter.Builder tableWriterBuilder =
-                            new TableWriter.Builder(bigQueryWriter, table, record.topic());
-                    tableWriterBuilders.put(table, tableWriterBuilder);
-                }
-                tableWriterBuilders.get(table).addRow(getRecordRow(record));
-            }
-        }
+                        if (!tableWriterBuilders.containsKey(table)) {
+                            TableWriter.Builder tableWriterBuilder =
+                                    new TableWriter.Builder(bigQueryWriter, table, record.topic());
+                            tableWriterBuilders.put(table, tableWriterBuilder);
+                        }
+
+                        tableWriterBuilders.get(table).addRow(recordRow);
+                    }
+                });
+
 
         // add tableWriters to the executor work queue
         for (TableWriter.Builder builder : tableWriterBuilders.values()) {
@@ -203,8 +214,8 @@ public class BigQuerySinkTask extends SinkTask {
         if (testBigQuery != null) {
             return testBigQuery;
         }
-        String projectName = config.getString(config.PROJECT_CONFIG);
-        String keyFilename = config.getString(config.KEYFILE_CONFIG);
+        String projectName = config.getString(BigQuerySinkConfig.PROJECT_CONFIG);
+        String keyFilename = config.getString(BigQuerySinkConfig.KEYFILE_CONFIG);
         return new BigQueryHelper().connect(projectName, keyFilename);
     }
 
@@ -216,9 +227,9 @@ public class BigQuerySinkTask extends SinkTask {
     }
 
     private BigQueryWriter getBigQueryWriter() {
-        boolean updateSchemas = config.getBoolean(config.SCHEMA_UPDATE_CONFIG);
-        int retry = config.getInt(config.BIGQUERY_RETRY_CONFIG);
-        long retryWait = config.getLong(config.BIGQUERY_RETRY_WAIT_CONFIG);
+        boolean updateSchemas = config.getBoolean(BigQuerySinkTaskConfig.SCHEMA_UPDATE_CONFIG);
+        int retry = config.getInt(BigQuerySinkTaskConfig.BIGQUERY_RETRY_CONFIG);
+        long retryWait = config.getLong(BigQuerySinkTaskConfig.BIGQUERY_RETRY_WAIT_CONFIG);
         BigQuery bigQuery = getBigQuery();
         if (updateSchemas) {
             return new AdaptiveBigQueryWriter(bigQuery,
@@ -248,9 +259,19 @@ public class BigQuerySinkTask extends SinkTask {
         executor = new KCBQThreadPoolExecutor(config, new LinkedBlockingQueue<>());
         topicPartitionManager = new TopicPartitionManager();
         useMessageTimeDatePartitioning =
-                config.getBoolean(config.BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG);
+                config.getBoolean(BigQuerySinkTaskConfig.BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG);
+        filterKey = config.getString(BigQuerySinkTaskConfig.BIGQUERY_FILTER_KEY_CONFIG);
+        final String filterValues = config.getString(BigQuerySinkTaskConfig.BIGQUERY_FILTER_VALUES_CONFIG);
+        rowFilters = Arrays.stream(filterValues.split(","))
+                .filter(s -> !Strings.isNullOrEmpty(s))
+                .map(s -> s.trim())
+                .collect(Collectors.toSet());
+        hasFilter = (!Strings.isNullOrEmpty(filterKey)) && (rowFilters.size() > 0);
+        filterRowPredicate = (row) ->
+                !(hasFilter && rowFilters.size() > 0)
+                        || rowFilters.contains(row.getContent().getOrDefault(filterKey, null));
         useKeyPartitioning =
-                config.getBoolean(config.BIGQUERY_KEY_PARTITIONING_CONFIG);
+                config.getBoolean(BigQuerySinkTaskConfig.BIGQUERY_KEY_PARTITIONING_CONFIG);
     }
 
     @Override

@@ -20,7 +20,6 @@ package com.wepay.kafka.connect.bigquery.config;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,6 +70,17 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
     private static final String BIGQUERY_RETRY_DOC =
             "The number of retry attempts that will be made per BigQuery request that fails with a "
                     + "backend error or a quota exceeded error";
+
+    public static final String BIGQUERY_FILTER_KEY_CONFIG = "bigQueryFilterKey";
+    private static final ConfigDef.Type BIGQUERY_FILTER_KEY_CONFIG_TYPE = ConfigDef.Type.STRING;
+    private static final String BIGQUERY_FILTER_KEY_DOC =
+            "The Record Key from Value that should be used for filtering records";
+
+    public static final String BIGQUERY_FILTER_VALUES_CONFIG = "bigQueryFilterValues";
+    private static final ConfigDef.Type BIGQUERY_FILTER_VALUES_CONFIG_TYPE = ConfigDef.Type.STRING;
+    private static final String BIGQUERY_FILTER_VALUES_DOC =
+            "A Comma seperated value that will be whitelisted while importing";
+
 
     public static final String BIGQUERY_RETRY_WAIT_CONFIG = "bigQueryRetryWait";
     private static final ConfigDef.Type BIGQUERY_RETRY_WAIT_CONFIG_TYPE = ConfigDef.Type.LONG;
@@ -152,6 +162,18 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
                         BIGQUERY_KEY_PARTITIONING_DEFAULT,
                         BIGQUERY_KEY_PARTITIONING_IMPORTANCE,
                         BIGQUERY_KEY_PARTITIONING_DOC
+                ).define(
+                        BIGQUERY_FILTER_KEY_CONFIG,
+                        BIGQUERY_FILTER_KEY_CONFIG_TYPE,
+                        "",
+                        ConfigDef.Importance.LOW,
+                        BIGQUERY_FILTER_KEY_DOC
+                ).define(
+                        BIGQUERY_FILTER_VALUES_CONFIG,
+                        BIGQUERY_FILTER_VALUES_CONFIG_TYPE,
+                        "",
+                        ConfigDef.Importance.LOW,
+                        BIGQUERY_FILTER_VALUES_DOC
                 );
     }
 
