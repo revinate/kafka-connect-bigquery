@@ -164,6 +164,7 @@ public class BigQuerySinkTask extends SinkTask {
         Map<PartitionedTableId, TableWriter.Builder> tableWriterBuilders = new HashMap<>();
 
         records.stream()
+                .filter(r -> Objects.nonNull(r.value()))
                 .map(record -> new AbstractMap.SimpleEntry<>(record, getRecordRow(record)))
                 .filter(r -> filterRowPredicate.apply(r.getValue()))
                 .forEach(r -> {
