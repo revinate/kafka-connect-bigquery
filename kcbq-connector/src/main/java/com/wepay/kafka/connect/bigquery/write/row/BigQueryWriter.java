@@ -25,6 +25,7 @@ import com.google.cloud.bigquery.InsertAllRequest;
 import com.wepay.kafka.connect.bigquery.exception.BigQueryConnectException;
 import com.wepay.kafka.connect.bigquery.utils.PartitionedTableId;
 
+import io.debezium.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,10 +89,13 @@ public abstract class BigQueryWriter {
    */
   protected InsertAllRequest createInsertAllRequest(PartitionedTableId tableId,
                                                     List<InsertAllRequest.RowToInsert> rows) {
-    return InsertAllRequest.newBuilder(tableId.getFullTableId(), rows)
-        .setIgnoreUnknownValues(false)
-        .setSkipInvalidRows(false)
-        .build();
+    InsertAllRequest.Builder builder = InsertAllRequest.newBuilder(tableId.getFullTableId(), rows)
+            .setIgnoreUnknownValues(false)
+            .setSkipInvalidRows(false);
+    if(!Strings.isNullOrEmpty(tableId.getTemplateSuffix())) {
+      builder.setTemplateSuffix(tableId.getTemplateSuffix());
+    }
+    return builder.build();
   }
 
   /**

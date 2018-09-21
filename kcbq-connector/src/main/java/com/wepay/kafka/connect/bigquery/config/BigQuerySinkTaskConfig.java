@@ -94,6 +94,17 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
       "Whether or not to use the message time when inserting records. "
       + "Default uses the connector processing time.";
 
+  public static final String BIGQUERY_MESSAGE_FIELD_PARTITIONING_CONFIG =
+      "bigQueryMessageFieldPartitioning";
+  private static final ConfigDef.Type BIGQUERY_MESSAGE_FIELD_PARTITIONING_CONFIG_TYPE =
+       ConfigDef.Type.STRING;
+  private static final String BIGQUERY_MESSAGE_FIELD_PARTITIONING_DEFAULT = "";
+  private static final ConfigDef.Importance BIGQUERY_MESSAGE_FIELD_PARTITIONING_IMPORTANCE =
+       ConfigDef.Importance.HIGH;
+  private static final String BIGQUERY_MESSAGE_FIELD_PARTITIONING_DOC =
+       "Whether or not to use the custom field when inserting records. "
+       + "Default uses the connector processing time.";
+
   static {
     config = BigQuerySinkConfig.getConfig()
         .define(
@@ -130,6 +141,12 @@ public class BigQuerySinkTaskConfig extends BigQuerySinkConfig {
             BIGQUERY_RETRY_WAIT_VALIDATOR,
             BIGQUERY_RETRY_WAIT_IMPORTANCE,
             BIGQUERY_RETRY_WAIT_DOC
+        ).define(
+            BIGQUERY_MESSAGE_FIELD_PARTITIONING_CONFIG,
+            BIGQUERY_MESSAGE_FIELD_PARTITIONING_CONFIG_TYPE,
+            BIGQUERY_MESSAGE_FIELD_PARTITIONING_DEFAULT,
+            BIGQUERY_MESSAGE_FIELD_PARTITIONING_IMPORTANCE,
+            BIGQUERY_MESSAGE_FIELD_PARTITIONING_DOC
         ).define(
             BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG,
             BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG_TYPE,

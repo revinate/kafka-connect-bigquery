@@ -19,6 +19,7 @@ package com.wepay.kafka.connect.bigquery.utils;
 
 
 import com.google.cloud.bigquery.TableId;
+import com.google.common.base.Objects;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -37,6 +38,7 @@ public class PartitionedTableId {
   private final String dataset;
   private final String table;
   private final String partition;
+  private final String templateSuffix;
 
   private final String fullTableName;
 
@@ -51,11 +53,12 @@ public class PartitionedTableId {
    * @param table The table name.
    * @param partition The partition of the table, if any.
    */
-  private PartitionedTableId(String project, String dataset, String table, String partition) {
+  private PartitionedTableId(String project, String dataset, String table, String partition, String templateSuffix) {
     this.project = project;
     this.dataset = dataset;
     this.table = table;
     this.partition = partition;
+    this.templateSuffix = templateSuffix;
 
     fullTableName = createFullTableName(table, partition);
 
@@ -137,18 +140,22 @@ public class PartitionedTableId {
     return fullTableId;
   }
 
+  public String getTemplateSuffix() {
+    return templateSuffix;
+  }
+
   @Override
-  public boolean equals(Object obj) {
-    if (obj instanceof PartitionedTableId) {
-      PartitionedTableId that = (PartitionedTableId) obj;
-      return fullTableId.equals(that.fullTableId);
-    }
-    return false;
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    PartitionedTableId that = (PartitionedTableId) o;
+    return Objects.equal(templateSuffix, that.templateSuffix) &&
+            Objects.equal(fullTableId, that.fullTableId);
   }
 
   @Override
   public int hashCode() {
-    return fullTableId.hashCode();
+    return Objects.hashCode(templateSuffix, fullTableId);
   }
 
   @Override
@@ -162,6 +169,7 @@ public class PartitionedTableId {
     private final String dataset;
     private final String baseTable;
     private String partition;
+    private String tableSuffix;
 
     /**
      * Initialize a new {@link PartitionedTableId} Builder with a dataset and base table name.
@@ -199,6 +207,11 @@ public class PartitionedTableId {
       return this;
     }
 
+    public Builder setTableSuffix(String tableSuffix) {
+      this.tableSuffix = tableSuffix;
+      return this;
+    }
+
     public Builder setDayPartition(long utcTime) {
       return setDayPartition(LocalDate.ofEpochDay(utcTime / MILLIS_IN_DAY));
     }
@@ -225,7 +238,7 @@ public class PartitionedTableId {
      * @return a {@link PartitionedTableId}.
      */
     public PartitionedTableId build() {
-      return new PartitionedTableId(project, dataset, baseTable, partition);
+      return new PartitionedTableId(project, dataset, baseTable, partition, tableSuffix);
     }
   }
 }

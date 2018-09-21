@@ -45,6 +45,7 @@ import com.wepay.kafka.connect.bigquery.write.row.BigQueryWriter;
 import com.wepay.kafka.connect.bigquery.write.row.GCSToBQWriter;
 import com.wepay.kafka.connect.bigquery.write.row.SimpleBigQueryWriter;
 
+import io.debezium.util.Strings;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigException;
@@ -81,6 +82,7 @@ public class BigQuerySinkTask extends SinkTask {
   private RecordConverter<Map<String, Object>> recordConverter;
   private Map<String, TableId> topicsToBaseTableIds;
   private boolean useMessageTimeDatePartitioning;
+  private String messageFieldPartitioningKey;
 
   private TopicPartitionManager topicPartitionManager;
 
@@ -138,10 +140,22 @@ public class BigQuerySinkTask extends SinkTask {
     }
   }
 
-  private PartitionedTableId getRecordTable(SinkRecord record) {
+  private class RecordTable {
+    private final PartitionedTableId tableId;
+    private final RowToInsert rowToInsert;
+
+    public RecordTable(PartitionedTableId tableId, RowToInsert rowToInsert) {
+      this.tableId = tableId;
+      this.rowToInsert = rowToInsert;
+    }
+  }
+
+  private RecordTable getRecordTable(SinkRecord record) {
     TableId baseTableId = topicsToBaseTableIds.get(record.topic());
 
     PartitionedTableId.Builder builder = new PartitionedTableId.Builder(baseTableId);
+    RowToInsert recordRow = RowToInsert.of(getRowId(record), recordConverter.convertRecord(record));
+    String partitionKey = String.valueOf(recordRow.getContent().getOrDefault(messageFieldPartitioningKey, ""));
     if (useMessageTimeDatePartitioning) {
       if (record.timestampType() == TimestampType.NO_TIMESTAMP_TYPE) {
         throw new ConnectException(
@@ -149,15 +163,15 @@ public class BigQuerySinkTask extends SinkTask {
       }
 
       builder.setDayPartition(record.timestamp());
-    } else {
+    }
+    else if(!Strings.isNullOrEmpty(messageFieldPartitioningKey) && !Strings.isNullOrEmpty(partitionKey)) {
+      builder.setTableSuffix(partitionKey);
+    }
+    else {
       builder.setDayPartitionForNow();
     }
 
-    return builder.build();
-  }
-
-  private RowToInsert getRecordRow(SinkRecord record) {
-    return RowToInsert.of(getRowId(record), recordConverter.convertRecord(record));
+    return new RecordTable(builder.build(), recordRow);
   }
 
   private String getRowId(SinkRecord record) {
@@ -176,30 +190,30 @@ public class BigQuerySinkTask extends SinkTask {
 
     for (SinkRecord record : records) {
       if (record.value() != null) {
-        PartitionedTableId table = getRecordTable(record);
+        RecordTable recordTable = getRecordTable(record);
         if (schemaRetriever != null) {
-          schemaRetriever.setLastSeenSchema(table.getBaseTableId(),
+          schemaRetriever.setLastSeenSchema(recordTable.tableId.getBaseTableId(),
                                             record.topic(),
                                             record.valueSchema());
         }
 
-        if (!tableWriterBuilders.containsKey(table)) {
+        if (!tableWriterBuilders.containsKey(recordTable.tableId)) {
           TableWriterBuilder tableWriterBuilder;
           if (config.getList(config.ENABLE_BATCH_CONFIG).contains(record.topic())) {
             String gcsBlobName = record.topic() + "_" + uuid + "_" + Instant.now().toEpochMilli();
             tableWriterBuilder = new GCSBatchTableWriter.Builder(
                 gcsToBQWriter,
-                table.getBaseTableId(),
+                recordTable.tableId.getBaseTableId(),
                 config.getString(config.GCS_BUCKET_NAME_CONFIG),
                 gcsBlobName,
                 recordConverter);
           } else {
             tableWriterBuilder =
-                new TableWriter.Builder(bigQueryWriter, table, record.topic(), recordConverter);
+                new TableWriter.Builder(bigQueryWriter, recordTable.tableId, record.topic(), recordConverter);
           }
-          tableWriterBuilders.put(table, tableWriterBuilder);
+          tableWriterBuilders.put(recordTable.tableId, tableWriterBuilder);
         }
-        tableWriterBuilders.get(table).addRow(getRecordRow(record));
+        tableWriterBuilders.get(recordTable.tableId).addRow(recordTable.rowToInsert);
       }
     }
 
@@ -297,6 +311,8 @@ public class BigQuerySinkTask extends SinkTask {
     topicPartitionManager = new TopicPartitionManager();
     useMessageTimeDatePartitioning =
         config.getBoolean(config.BIGQUERY_MESSAGE_TIME_PARTITIONING_CONFIG);
+    messageFieldPartitioningKey =
+            config.getString(config.BIGQUERY_MESSAGE_FIELD_PARTITIONING_CONFIG);
     if (hasGCSBQTask) {
       startGCSToBQLoadTask();
     }
